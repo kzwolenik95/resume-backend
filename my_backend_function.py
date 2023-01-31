@@ -5,10 +5,13 @@ dynamo = boto3.client('dynamodb')
 
 def respond(err, res=None):
     return {
-        'statusCode': 400 if err else '200',
-        'body': err.message if err else json.dumps(res),
+        'statusCode': 400 if err else 200,
+        'body': json.dumps(err) if err else json.dumps(res),
         'headers': {
             'Content-Type': 'application/json',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
         },
     }
 
@@ -38,7 +41,7 @@ def get_counter_value():
     )
     return {'counter_value': response['Item']['counter_value']['N']}
 
-def lambda_handler(event, context):
+def lambda_handler(event):
     
     print(f'Event: {json.dumps(event)}')
     
