@@ -41,7 +41,7 @@ def get_counter_value():
     )
     return {'counter_value': response['Item']['counter_value']['N']}
 
-def lambda_handler(event):
+def lambda_handler(event, context):
     
     print(f'Event: {json.dumps(event)}')
     
