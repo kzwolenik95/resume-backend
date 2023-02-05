@@ -52,6 +52,11 @@ Resources:
         - AmazonSSMReadOnlyAccess
       Architectures:
         - x86_64
+      Events:
+        SlackSNS:
+          Type: SNS
+          Properties:
+            Topic: !Ref SlackBotTopic
   DynamodbTable:
     Type: AWS::DynamoDB::Table
     Properties:
