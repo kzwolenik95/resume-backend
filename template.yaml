@@ -94,7 +94,7 @@ Resources:
         - Name: FunctionName
           Value: !Ref BackendFunction
       MetricName: "Invocations"
-      Namespace: AWS/Lambda"
+      Namespace: AWS/Lambda
       Period: 300
       Statistic: Sum
       Threshold: 50.0
@@ -118,7 +118,7 @@ Resources:
         - Name: FunctionName
           Value: !Ref BackendFunction
       MetricName: "Duration"
-      Namespace: AWS/Lambda"
+      Namespace: AWS/Lambda
       Period: 300
       Statistic: Average
       Threshold: 500.0
