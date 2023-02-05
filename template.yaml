@@ -42,6 +42,16 @@ Resources:
           Properties:
             Path: /increment
             Method: post
+  SlackNotifFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: slack_notif/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Policies:
+        - AmazonSSMReadOnlyAccess
+      Architectures:
+        - x86_64
   DynamodbTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -55,6 +65,68 @@ Resources:
         ReadCapacityUnits: 1
         WriteCapacityUnits: 1
       TableName: counter_table
+  EmailTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: kzwolenik95_CloudWatch_Alarms_Topic
+      Subscription:
+      - Endpoint: kzwolenik95@gmail.com
+        Protocol: email
+  SlackBotTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: SlackBot
+      Subscription:
+      - Endpoint: !GetAtt SlackNotifFunction.Arn
+        Protocol: lambda
+  CloudWatchHighInvocationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
+        - "arn:aws:sns:us-east-1:982211721436:kzwolenik95_CloudWatch_Alarms_Topic"
+      OKActions:
+        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
+      AlarmDescription: "High invocation count on lambda function"
+      AlarmName: "High invocation count"
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BackendFunction
+      MetricName: "Invocations"
+      Namespace: AWS/Lambda"
+      Period: 300
+      Statistic: Sum
+      Threshold: 50.0
+      TreatMissingData: "notBreaching"
+      EvaluationPeriods: 1
+    DependsOn:
+      - "SlackBotTopic"
+      - "EmailTopic"
+  CloudWatchHighBackendLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmActions:
+        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
+        - "arn:aws:sns:us-east-1:982211721436:kzwolenik95_CloudWatch_Alarms_Topic"
+      OKActions:
+        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
+      AlarmDescription: "High backend latency detected"
+      AlarmName: "High backend latency"
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BackendFunction
+      MetricName: "Duration"
+      Namespace: AWS/Lambda"
+      Period: 300
+      Statistic: Average
+      Threshold: 500.0
+      TreatMissingData: "notBreaching"
+      EvaluationPeriods: 1
+    DependsOn:
+      - "SlackBotTopic"
+      - "EmailTopic"
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group
     Properties:
