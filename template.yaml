@@ -88,10 +88,10 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmActions:
-        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
-        - "arn:aws:sns:us-east-1:982211721436:kzwolenik95_CloudWatch_Alarms_Topic"
+        - !Ref SlackBotTopic
+        - !Ref EmailTopic
       OKActions:
-        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
+        - !Ref SlackBotTopic
       AlarmDescription: "High invocation count on lambda function"
       AlarmName: "High invocation count"
       ComparisonOperator: GreaterThanThreshold
@@ -105,17 +105,14 @@ Resources:
       Threshold: 50.0
       TreatMissingData: "notBreaching"
       EvaluationPeriods: 1
-    DependsOn:
-      - "SlackBotTopic"
-      - "EmailTopic"
   CloudWatchHighBackendLatencyAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmActions:
-        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
-        - "arn:aws:sns:us-east-1:982211721436:kzwolenik95_CloudWatch_Alarms_Topic"
+        - !Ref SlackBotTopic
+        - !Ref EmailTopic
       OKActions:
-        - "arn:aws:sns:us-east-1:982211721436:slack_bot"
+        - !Ref SlackBotTopic
       AlarmDescription: "High backend latency detected"
       AlarmName: "High backend latency"
       ComparisonOperator: GreaterThanThreshold
@@ -129,9 +126,6 @@ Resources:
       Threshold: 500.0
       TreatMissingData: "notBreaching"
       EvaluationPeriods: 1
-    DependsOn:
-      - "SlackBotTopic"
-      - "EmailTopic"
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group
     Properties:

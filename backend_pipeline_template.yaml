@@ -1,0 +1,303 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  CodeBuildName:
+    Type: String
+  CodeCommitRepoName:
+    Type: String
+    Default: resume-backend
+  DockerImageURL:
+    Type: String
+    Default: public.ecr.aws/sam/build-python3.9:1.72.0-20230202220736
+  PipelineName:
+    Type: String
+    Default: backend-pipeline
+Resources:
+  ArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        !Sub 
+        - "codepipeline-${AWS::Region}-${RandomGUID}"
+        - { RandomGUID: !Select [0, !Split ["-", !Select [2, !Split ["/", !Ref AWS::StackId ]]]] }
+  BackendPipelineRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      RoleName: !Sub 'AWSCodePipelineServiceRole-${AWS::Region}-${PipelineName}'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: "sts:AssumeRole"
+  BackendPipelineRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - iam:PassRole
+            Resource: "*"
+            Effect: Allow
+            Condition:
+              StringEqualsIfExists:
+                iam:PassedToService:
+                  - cloudformation.amazonaws.com
+                  - elasticbeanstalk.amazonaws.com
+                  - ec2.amazonaws.com
+                  - ecs-tasks.amazonaws.com
+          - Action:
+              - codecommit:CancelUploadArchive
+              - codecommit:GetBranch
+              - codecommit:GetCommit
+              - codecommit:GetRepository
+              - codecommit:GetUploadArchiveStatus
+              - codecommit:UploadArchive
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - codedeploy:CreateDeployment
+              - codedeploy:GetApplication
+              - codedeploy:GetApplicationRevision
+              - codedeploy:GetDeployment
+              - codedeploy:GetDeploymentConfig
+              - codedeploy:RegisterApplicationRevision
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - codestar-connections:UseConnection
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - elasticbeanstalk:*
+              - ec2:*
+              - elasticloadbalancing:*
+              - autoscaling:*
+              - cloudwatch:*
+              - s3:*
+              - sns:*
+              - cloudformation:*
+              - rds:*
+              - sqs:*
+              - ecs:*
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - lambda:InvokeFunction
+              - lambda:ListFunctions
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - opsworks:CreateDeployment
+              - opsworks:DescribeApps
+              - opsworks:DescribeCommands
+              - opsworks:DescribeDeployments
+              - opsworks:DescribeInstances
+              - opsworks:DescribeStacks
+              - opsworks:UpdateApp
+              - opsworks:UpdateStack
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - cloudformation:CreateStack
+              - cloudformation:DeleteStack
+              - cloudformation:DescribeStacks
+              - cloudformation:UpdateStack
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:SetStackPolicy
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+            Effect: Allow
+          - Action:
+              - codebuild:BatchGetBuilds
+              - codebuild:StartBuild
+              - codebuild:BatchGetBuildBatches
+              - codebuild:StartBuildBatch
+            Resource: "*"
+            Effect: Allow
+          - Effect: Allow
+            Action:
+              - devicefarm:ListProjects
+              - devicefarm:ListDevicePools
+              - devicefarm:GetRun
+              - devicefarm:GetUpload
+              - devicefarm:CreateUpload
+              - devicefarm:ScheduleRun
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - servicecatalog:ListProvisioningArtifacts
+              - servicecatalog:CreateProvisioningArtifact
+              - servicecatalog:DescribeProvisioningArtifact
+              - servicecatalog:DeleteProvisioningArtifact
+              - servicecatalog:UpdateProduct
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - ecr:DescribeImages
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - states:DescribeExecution
+              - states:DescribeStateMachine
+              - states:StartExecution
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - appconfig:StartDeployment
+              - appconfig:StopDeployment
+              - appconfig:GetDeployment
+            Resource: "*"
+      PolicyName: !Sub 'AWSCodePipelineServiceRole-${AWS::Region}-${PipelineName}'
+      Roles:
+        - !Ref BackendPipelineRole
+  BackendPipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Ref PipelineName
+      RestartExecutionOnUpdate: false
+      RoleArn: !GetAtt BackendPipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactStoreBucket
+      Stages: 
+        - Name: Source
+          Actions:
+            - Name: Source
+              ActionTypeId:
+                Owner: AWS
+                Category: Source
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                - Name: "SourceArtifact"
+              Configuration:
+                "BranchName": "master"
+                "OutputArtifactFormat": "CODE_ZIP"
+                "PollForSourceChanges": "false"
+                "RepositoryName": !Ref CodeCommitRepoName
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Owner: AWS
+                Category: Build
+                Version: "1"
+                Provider: CodeBuild
+              InputArtifacts:
+                - Name: "SourceArtifact"
+              Configuration:
+                ProjectName: !Ref CodeBuildName
+  CodeBuildRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "AWSCodeBuildServiceRole-${AWS::Region}-${CodeBuildName}"
+      Path: "/service-role/"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "codebuild.amazonaws.com"
+            Action: "sts:AssumeRole"
+  CodeBuildRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Resource:
+              - arn:aws:logs:us-east-1:982211721436:log-group:/aws/codebuild/build-backend
+              - arn:aws:logs:us-east-1:982211721436:log-group:/aws/codebuild/build-backend:*
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+          - Effect: Allow
+            Action:
+              - cloudformation:DescribeStacks
+              - cloudformation:CreateChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:DescribeStackEvents
+            Resource:
+              - arn:aws:cloudformation:us-east-1:aws:transform/Serverless-2016-10-31
+              - arn:aws:cloudformation:us-east-1:982211721436:stack/sam-app/*
+          - Effect: Allow
+            Resource:
+              - arn:aws:s3:::codepipeline-us-east-1-*
+              - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-19lxc95vclngk*
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:GetBucketAcl
+              - s3:GetBucketLocation
+          - Effect: Allow
+            Action:
+              - cloudformation:GetTemplateSummary
+            Resource: arn:aws:cloudformation:us-east-1:982211721436:stack/sam-app/*
+          - Effect: Allow
+            Action:
+              - codebuild:CreateReportGroup
+              - codebuild:CreateReport
+              - codebuild:UpdateReport
+              - codebuild:BatchPutTestCases
+              - codebuild:BatchPutCodeCoverages
+            Resource:
+              - arn:aws:codebuild:us-east-1:982211721436:report-group/build-backend-*
+          - Effect: "Allow"
+            Action:
+              - "lambda:*"
+              - "cloudwatch:*"
+              - "dynamodb:*"
+              - "sns:*"
+              - "resource-groups:*"
+              - "applicationinsights:*"
+              - "cloudformation:*"
+              - "apigateway:*"
+              - "logs:*"
+              - "iam:*"
+            Resource:
+              - "*"
+      PolicyName: !Sub 'CodeBuildBasePolicy-${CodeBuildName}-${AWS::Region}'
+      Roles:
+        - !Ref CodeBuildRole
+  CodeBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Ref CodeBuildName
+      Source:
+        Type: "CODEPIPELINE"
+        BuildSpec: |-
+          version: 0.2
+          phases:
+            install:
+              commands:
+                - pip install -r tests/requirements.txt
+            build:
+              commands:
+                - export PYTHONPATH=${CODEBUILD_SRC_DIR}
+                - pytest tests/unit/
+                - sam build
+                - sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: "CODEPIPELINE"
+        Name: !Ref CodeBuildName
+        Packaging: "NONE"
+      Environment:
+        Type: "LINUX_CONTAINER"
+        Image: !Ref DockerImageURL
+        ComputeType: "BUILD_GENERAL1_SMALL"
+        ImagePullCredentialsType: "SERVICE_ROLE"
