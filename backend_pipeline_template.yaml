@@ -236,7 +236,7 @@ Resources:
           - Effect: Allow
             Resource:
               - arn:aws:s3:::codepipeline-us-east-1-*
-              - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-19lxc95vclngk*
+              - arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*
             Action:
               - s3:PutObject
               - s3:GetObject
