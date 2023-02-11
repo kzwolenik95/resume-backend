@@ -294,7 +294,8 @@ Resources:
                 - pytest tests/unit/
                 - sam build
                 - sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
-                - RESUME_API=$(aws cloudformation describe-stacks --stack-name sam-app-hello --query 'Stacks[0].Outputs[?OutputKey==`ResumeApi`].OutputValue' --output text)
+                - STACK_NAME=$(sed -n 's|stack_name\s*=\s*"\([-a-zA-Z0-9]\+\)"|\1|p' samconfig.toml)
+                - RESUME_API=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`ResumeApi`].OutputValue' --output text)
                 - export ResumeApi=$RESUME_API
       ServiceRole: !GetAtt CodeBuildRole.Arn
       Artifacts:
